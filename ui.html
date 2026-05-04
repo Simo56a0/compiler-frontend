@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LexerLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #0e0f14;
+  --surface: #161820;
+  --border:  #252838;
+  --border2: #363a50;
+  --text:    #e2e4ed;
+  --muted:   #6b7099;
+  --accent:  #7c6af7;
+  --accent2: #a78bfa;
+
+  --kw:   #c084fc;
+  --id:   #67e8f9;
+  --num:  #34d399;
+  --op:   #fbbf24;
+  --str:  #86efac;
+  --bool: #f472b6;
+  --cmt:  #4b5563;
+  --pct:  #94a3b8;
+  --err:  #f87171;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ── HEADER ── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.logo { font-family:'Syne',sans-serif; font-weight:800; font-size:19px; letter-spacing:-0.5px; }
+.logo span { color: var(--accent2); }
+.badge { font-size:10px; padding:3px 9px; border-radius:20px; border:1px solid var(--border2); color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.tab {
+  font-family:'Syne',sans-serif;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  padding:10px 22px;
+  cursor:pointer;
+  color:var(--muted);
+  border-bottom:2px solid transparent;
+  transition:all .15s;
+  user-select:none;
+}
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--accent2); border-bottom-color:var(--accent); }
+.tab.mycode-tab { color: var(--num); }
+.tab.mycode-tab.active { color:var(--num); border-bottom-color:var(--num); }
+
+/* ── TAB PAGES ── */
+.page { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.page.active { display:flex; }
+
+/* ── EXAMPLES BAR ── */
+.examples {
+  display:flex; align-items:center; gap:8px; padding:9px 20px;
+  border-bottom:1px solid var(--border); background:var(--bg);
+  flex-shrink:0; flex-wrap:wrap;
+}
+.examples-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+.ex-btn {
+  font-family:'JetBrains Mono',monospace; font-size:11px; padding:3px 11px;
+  border-radius:4px; border:1px solid var(--border2); background:transparent;
+  color:var(--muted); cursor:pointer; transition:all .15s;
+}
+.ex-btn:hover { border-color:var(--accent); color:var(--accent2); background:rgba(124,106,247,.06); }
+.ex-parser-select {
+  font-family:'JetBrains Mono',monospace; font-size:11px;
+  background:var(--surface); color:var(--text); border:1px solid var(--border2);
+  border-radius:4px; padding:4px 10px; outline:none; cursor:pointer;
+}
+.ex-parser-select:focus { border-color:var(--accent); }
+.ex-btn:hover { border-color:var(--accent); color:var(--accent2); background:rgba(124,106,247,.06); }
+
+/* ── TWO PANELS ── */
+.panels { display:grid; grid-template-columns:1fr 1fr; flex:1; overflow:hidden; }
+
+.panel {
+  display:flex; flex-direction:column;
+  border-right:1px solid var(--border); overflow:hidden;
+}
+.panel:last-child { border-right:none; }
+
+.panel-head {
+  padding:9px 16px; border-bottom:1px solid var(--border);
+  background:var(--surface); display:flex; align-items:center;
+  justify-content:space-between; flex-shrink:0;
+}
+.panel-title { font-family:'Syne',sans-serif; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+.pill { font-size:10px; padding:2px 8px; border-radius:12px; background:rgba(124,106,247,.15); color:var(--accent2); border:1px solid rgba(124,106,247,.3); }
+.pill.err { background:rgba(248,113,113,.12); color:var(--err); border-color:rgba(248,113,113,.3); }
+
+#editor {
+  flex:1; background:transparent; border:none; outline:none; resize:none;
+  padding:16px; color:var(--text); font-family:'JetBrains Mono',monospace;
+  font-size:13px; line-height:1.75; tab-size:4;
+}
+#editor::placeholder { color:var(--muted); }
+
+#parser-editor {
+  flex:1; background:transparent; border:none; outline:none; resize:none;
+  padding:16px; color:var(--text); font-family:'JetBrains Mono',monospace;
+  font-size:13px; line-height:1.75; tab-size:4;
+}
+#parser-editor::placeholder { color:var(--muted); }
+
+#token-stream {
+  flex:1; padding:12px 14px; display:flex; flex-wrap:wrap;
+  gap:6px; align-content:flex-start; overflow-y:auto;
+}
+
+.tok {
+  display:inline-flex; flex-direction:column; gap:1px;
+  padding:4px 8px; border-radius:5px; cursor:default;
+  transition:transform .1s; animation:popIn .15s ease both;
+  position:relative;
+}
+.tok:hover { transform:translateY(-1px); }
+@keyframes popIn { from{opacity:0;transform:scale(.85)} to{opacity:1;transform:scale(1)} }
+.tok-type { font-size:9px; font-weight:700; letter-spacing:.08em; opacity:.7; }
+.tok-val  { font-size:12px; font-weight:500; }
+
+.tk-KEYWORD    { background:rgba(192,132,252,.12); color:var(--kw); }
+.tk-IDENTIFIER { background:rgba(103,232,249,.1);  color:var(--id); }
+.tk-INTEGER,.tk-FLOAT { background:rgba(52,211,153,.1); color:var(--num); }
+.tk-OPERATOR   { background:rgba(251,191,36,.1);   color:var(--op); }
+.tk-STRING     { background:rgba(134,239,172,.1);  color:var(--str); }
+.tk-BOOLEAN    { background:rgba(244,114,182,.12); color:var(--bool); }
+.tk-COMMENT    { background:rgba(75,85,99,.2);     color:var(--cmt); font-style:italic; }
+.tk-LPAREN,.tk-RPAREN,.tk-LBRACE,.tk-RBRACE,
+.tk-LBRACKET,.tk-RBRACKET,.tk-COLON,.tk-COMMA,
+.tk-DOT,.tk-SEMICOLON { background:rgba(148,163,184,.08); color:var(--pct); }
+.tk-ERROR { background:rgba(248,113,113,.12); color:var(--err); border:1px solid rgba(248,113,113,.35); }
+
+/* ── BOTTOM BAR ── */
+.bottom-bar {
+  display:flex; align-items:center; gap:12px; padding:10px 20px;
+  border-top:1px solid var(--border); background:var(--surface);
+  flex-shrink:0; flex-wrap:wrap;
+}
+#run-btn {
+  font-family:'Syne',sans-serif; font-size:12px; font-weight:700;
+  padding:8px 20px; border-radius:6px; border:none; background:var(--accent);
+  color:#fff; cursor:pointer; letter-spacing:.05em; transition:opacity .15s,transform .1s;
+  white-space:nowrap;
+}
+#run-btn:hover  { opacity:.88; }
+#run-btn:active { transform:scale(.97); }
+#run-btn.loading { opacity:.55; cursor:wait; }
+
+.stat-group { display:flex; gap:16px; flex-wrap:wrap; }
+.stat { display:flex; flex-direction:column; gap:1px; }
+.stat-val { font-size:15px; font-weight:700; color:var(--text); }
+.stat-lbl { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+.sep { width:1px; height:28px; background:var(--border); }
+
+.legend { display:flex; gap:10px; flex-wrap:wrap; }
+.leg { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--muted); }
+.leg-dot { width:8px; height:8px; border-radius:2px; }
+
+/* ── ERROR SECTION ── */
+.err-strip {
+  border-top:1px solid rgba(248,113,113,.25); background:rgba(248,113,113,.04);
+  padding:9px 20px; display:none; flex-shrink:0;
+}
+.err-strip.visible { display:block; }
+.err-title { font-size:10px; font-weight:700; color:var(--err); text-transform:uppercase; letter-spacing:.08em; margin-bottom:5px; }
+.err-item  { font-size:12px; color:#fca5a5; line-height:1.8; }
+.err-item::before { content:"✕ "; }
+
+/* ── EMPTY ── */
+.empty { color:var(--muted); font-size:12px; padding:20px; width:100%; text-align:center; }
+
+/* ── COMPILER PAGE ── */
+#compiler-page { flex-direction:column; overflow:hidden; }
+
+.compiler-container {
+  display:grid; grid-template-columns:35% 1fr; flex:1; overflow:hidden; gap:16px; padding:16px;
+}
+
+.compiler-editor-panel {
+  display:flex; flex-direction:column; border:1px solid var(--border);
+  border-radius:6px; overflow:hidden; background:var(--surface);
+}
+
+.compiler-editor-panel .panel-head {
+  padding:9px 16px; border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+
+#compiler-editor {
+  flex:1; background:transparent; border:none; outline:none; resize:none;
+  padding:16px; color:var(--text); font-family:'JetBrains Mono',monospace;
+  font-size:13px; line-height:1.75; tab-size:4;
+}
+#compiler-editor::placeholder { color:var(--muted); }
+
+.compiler-bottom-bar {
+  display:flex; align-items:center; gap:10px; padding:10px 16px;
+  border-top:1px solid var(--border); background:var(--surface);
+  flex-shrink:0;
+}
+
+#compiler-run-btn {
+  font-family:'Syne',sans-serif; font-size:12px; font-weight:700;
+  padding:8px 20px; border-radius:6px; border:none; background:var(--accent);
+  color:#fff; cursor:pointer; letter-spacing:.05em; transition:opacity .15s,transform .1s;
+  white-space:nowrap;
+}
+#compiler-run-btn:hover  { opacity:.88; }
+#compiler-run-btn:active { transform:scale(.97); }
+#compiler-run-btn.loading { opacity:.55; cursor:wait; }
+
+.compiler-flow {
+  display:flex; flex-direction:column; overflow-y:auto; gap:12px;
+}
+
+.stage-box {
+  border:1px solid var(--border); border-radius:6px; overflow:hidden;
+  background:var(--surface); display:flex; flex-direction:column;
+}
+
+.stage-header {
+  display:flex; align-items:center; gap:10px; padding:12px 16px;
+  background:var(--bg); border-bottom:1px solid var(--border);
+  font-weight:600; font-size:12px;
+}
+
+.stage-header.stage-1 { border-left:4px solid rgba(192,132,252,.5); }
+.stage-header.stage-2 { border-left:4px solid rgba(103,232,249,.5); }
+.stage-header.stage-3 { border-left:4px solid rgba(52,211,153,.5); }
+
+.stage-number {
+  display:flex; align-items:center; justify-content:center;
+  width:24px; height:24px; border-radius:50%; background:var(--accent);
+  color:white; font-size:11px; font-weight:700; flex-shrink:0;
+}
+
+.stage-header.stage-1 .stage-number { background:rgba(192,132,252,.7); }
+.stage-header.stage-2 .stage-number { background:rgba(103,232,249,.7); }
+.stage-header.stage-3 .stage-number { background:rgba(52,211,153,.7); }
+
+.stage-title { flex:1; color:var(--text); }
+
+.stage-status {
+  font-size:11px; font-weight:700; padding:2px 8px; border-radius:3px;
+  background:rgba(148,163,184,.15); color:var(--muted);
+}
+.stage-status.success { background:rgba(52,211,153,.15); color:var(--num); }
+.stage-status.error { background:rgba(248,113,113,.15); color:var(--err); }
+
+.stage-content {
+  padding:14px 16px; flex:1; overflow-y:auto; font-family:'JetBrains Mono',monospace;
+  font-size:12px; max-height:200px;
+}
+
+.stage-empty { color:var(--muted); text-align:center; padding:20px 0; }
+
+.stage-arrow {
+  text-align:center; color:var(--accent); font-size:18px; margin:4px 0;
+  opacity:.6;
+}
+
+/* Token list in stages */
+.stage-tokens {
+  display:flex; flex-wrap:wrap; gap:6px;
+}
+
+.stage-tok {
+  display:inline-flex; flex-direction:column; gap:1px;
+  padding:3px 8px; border-radius:4px; font-size:10px;
+  background:rgba(124,106,247,.1); color:var(--accent2); border:1px solid rgba(124,106,247,.2);
+}
+
+/* Symbol table in stage 3 */
+.symbol-table {
+  width:100%; border-collapse:collapse; font-size:11px;
+}
+
+.symbol-table th {
+  text-align:left; padding:8px; background:rgba(124,106,247,.1);
+  border-bottom:1px solid var(--border); color:var(--accent2); font-weight:700;
+}
+
+.symbol-table td {
+  padding:6px 8px; border-bottom:1px solid rgba(124,106,247,.1);
+  color:var(--text);
+}
+
+.symbol-table tr:hover { background:rgba(124,106,247,.05); }
+
+/* ── PARSER TREE ── */
+.parser-tree {
+  flex:1; padding:16px; overflow-y:auto; font-family:'JetBrains Mono',monospace; font-size:12px;
+}
+.tree-node {
+  margin-left:16px; margin-bottom:2px; line-height:1.6;
+}
+.tree-toggle {
+  cursor:pointer; user-select:none; width:16px; display:inline-block; text-align:center;
+  color:var(--accent); font-weight:bold;
+}
+.tree-toggle.collapsed::before { content:"▶"; }
+.tree-toggle.expanded::before { content:"▼"; }
+.tree-label {
+  display:inline-block; margin-left:4px; color:var(--accent2); font-weight:600;
+}
+.tree-value {
+  color:var(--num); margin-left:6px;
+}
+.tree-children {
+  display:block;
+}
+.tree-children.hidden {
+  display:none;
+}
+
+/* ── TOOLTIP ── */
+.tok:hover::after {
+  content: attr(data-tip);
+  position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%);
+  background:#1e2030; color:var(--text); border:1px solid var(--border2);
+  border-radius:4px; padding:3px 8px; font-size:10px; white-space:nowrap;
+  z-index:10; pointer-events:none;
+}
+
+/* ── MY CODE PAGE ── */
+#mycode-page { flex-direction:column; overflow:hidden; }
+
+.mycode-top {
+  display:grid; grid-template-columns:1fr 1fr; flex:1; overflow:hidden;
+}
+.mycode-editor-wrap {
+  display:flex; flex-direction:column;
+  border-right:1px solid var(--border); overflow:hidden;
+}
+.mycode-out-wrap {
+  display:flex; flex-direction:column; overflow:hidden;
+}
+
+#mycode-editor {
+  flex:1; background:transparent; border:none; outline:none; resize:none;
+  padding:16px; color:var(--text); font-family:'JetBrains Mono',monospace;
+  font-size:13px; line-height:1.75; tab-size:4;
+}
+#mycode-editor::placeholder { color:var(--muted); }
+
+#mycode-stream {
+  flex:1; padding:12px 14px; display:flex; flex-wrap:wrap;
+  gap:6px; align-content:flex-start; overflow-y:auto;
+}
+
+.mycode-bar {
+  display:flex; align-items:center; gap:10px; padding:10px 18px;
+  border-top:1px solid var(--border); background:var(--surface);
+  flex-shrink:0; flex-wrap:wrap;
+}
+
+#mycode-run-btn {
+  font-family:'Syne',sans-serif; font-size:12px; font-weight:700;
+  padding:8px 20px; border-radius:6px; border:none;
+  background: #22874f;
+  color:#fff; cursor:pointer; letter-spacing:.05em;
+  transition:opacity .15s,transform .1s; white-space:nowrap;
+}
+#mycode-run-btn:hover  { opacity:.88; }
+#mycode-run-btn:active { transform:scale(.97); }
+#mycode-run-btn.loading { opacity:.55; cursor:wait; }
+
+#mycode-clear-btn {
+  font-family:'Syne',sans-serif; font-size:11px; font-weight:600;
+  padding:7px 14px; border-radius:6px;
+  border:1px solid var(--border2); background:transparent;
+  color:var(--muted); cursor:pointer; letter-spacing:.04em;
+  transition:all .15s;
+}
+#mycode-clear-btn:hover { border-color:var(--err); color:var(--err); }
+
+.mycode-hint {
+  font-size:10px; color:var(--muted);
+}
+
+.mycode-err-strip {
+  border-top:1px solid rgba(248,113,113,.25); background:rgba(248,113,113,.04);
+  padding:9px 20px; display:none; flex-shrink:0;
+}
+.mycode-err-strip.visible { display:block; }
+
+.save-indicator {
+  font-size:10px; color:var(--num); margin-left:auto;
+  opacity:0; transition:opacity .3s;
+}
+.save-indicator.show { opacity:1; }
+
+/* ─────────────────────────────────────────────────
+   DFA TAB
+───────────────────────────────────────────────── */
+#dfa-page {
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dfa-toolbar {
+  display:flex; align-items:center; gap:10px; padding:10px 20px;
+  border-bottom:1px solid var(--border); background:var(--bg);
+  flex-shrink:0; flex-wrap:wrap;
+}
+.dfa-toolbar label { font-size:11px; color:var(--muted); }
+.dfa-select {
+  font-family:'JetBrains Mono',monospace; font-size:11px;
+  background:var(--surface); color:var(--text); border:1px solid var(--border2);
+  border-radius:4px; padding:4px 10px; outline:none; cursor:pointer;
+}
+.dfa-select:focus { border-color:var(--accent); }
+
+.dfa-hint {
+  font-size:10px; color:var(--muted); margin-left:auto;
+}
+
+.dfa-wrap {
+  flex:1; display:flex; overflow:hidden; gap:0;
+}
+
+#dfa-canvas-wrap {
+  flex:1; overflow:hidden; position:relative; cursor:grab;
+  background: radial-gradient(ellipse at 50% 50%, #12141e 0%, #0e0f14 100%);
+}
+#dfa-canvas-wrap:active { cursor:grabbing; }
+
+#dfa-canvas {
+  position:absolute; top:0; left:0;
+  width:100%; height:100%;
+}
+
+/* side panel */
+.dfa-side {
+  width:260px; flex-shrink:0; border-left:1px solid var(--border);
+  background:var(--surface); display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.dfa-side-head {
+  padding:10px 14px; border-bottom:1px solid var(--border);
+  font-family:'Syne',sans-serif; font-size:11px; font-weight:600;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+}
+.dfa-side-body { flex:1; overflow-y:auto; padding:10px 14px; }
+
+.state-card {
+  padding:9px 12px; border-radius:6px; border:1px solid var(--border2);
+  margin-bottom:8px; cursor:pointer; transition:all .15s;
+}
+.state-card:hover { border-color:var(--accent); background:rgba(124,106,247,.06); }
+.state-card.active { border-color:var(--accent2); background:rgba(124,106,247,.12); }
+.state-card.accept { border-color:var(--num); }
+.state-card.start  { border-color:var(--accent2); }
+.state-card.error-st { border-color:var(--err); }
+
+.sc-name { font-size:12px; font-weight:700; color:var(--text); margin-bottom:3px; }
+.sc-desc { font-size:10px; color:var(--muted); line-height:1.5; }
+.sc-badge {
+  display:inline-block; font-size:9px; padding:1px 6px; border-radius:10px;
+  margin-right:4px; margin-top:4px; border:1px solid;
+}
+.sc-badge.start  { color:var(--accent2); border-color:var(--accent2); background:rgba(167,139,250,.1); }
+.sc-badge.accept { color:var(--num); border-color:var(--num); background:rgba(52,211,153,.1); }
+.sc-badge.trap   { color:var(--err); border-color:var(--err); background:rgba(248,113,113,.1); }
+
+/* token stepper */
+.stepper {
+  border-top:1px solid var(--border); padding:12px 14px; flex-shrink:0;
+}
+.stepper-title {
+  font-size:10px; color:var(--muted); text-transform:uppercase;
+  letter-spacing:.08em; margin-bottom:8px;
+}
+.stepper-tok {
+  font-size:12px; color:var(--text); padding:6px 10px;
+  border-radius:5px; background:var(--bg); border:1px solid var(--border2);
+  margin-bottom:8px; min-height:32px; display:flex; align-items:center; gap:8px;
+}
+.stepper-type { font-size:9px; opacity:.6; font-weight:700; }
+.stepper-val  { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.step-nav { display:flex; gap:6px; }
+.step-btn {
+  flex:1; font-family:'Syne',sans-serif; font-size:10px; font-weight:700;
+  padding:5px 0; border-radius:4px; border:1px solid var(--border2);
+  background:transparent; color:var(--muted); cursor:pointer; transition:all .15s;
+}
+.step-btn:hover:not(:disabled) { border-color:var(--accent); color:var(--accent2); }
+.step-btn:disabled { opacity:.3; cursor:not-allowed; }
+.step-counter { font-size:10px; color:var(--muted); text-align:center; margin-top:6px; }
+
+/* zoom controls */
+.zoom-btns {
+  position:absolute; bottom:14px; right:14px; display:flex; flex-direction:column; gap:4px;
+}
+.zoom-btn {
+  width:30px; height:30px; border-radius:6px; border:1px solid var(--border2);
+  background:var(--surface); color:var(--text); cursor:pointer; font-size:16px;
+  display:flex; align-items:center; justify-content:center; transition:all .15s;
+}
+.zoom-btn:hover { border-color:var(--accent); color:var(--accent2); }
+
+/* scrollbar */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Lexer<span>Lab</span></div>
+  <span class="badge">Regex + DFA Engine</span>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('lexer')">Lexer</div>
+  <div class="tab mycode-tab" onclick="switchTab('mycode')">✎ My Code</div>
+  <div class="tab" onclick="switchTab('parser')">Parser</div>
+  <div class="tab" onclick="switchTab('compiler')">Compiler Pipeline</div>
+  <div class="tab" onclick="switchTab('dfa')">DFA Visualizer</div>
+</div>
+
+<!-- ════════════════════════════════
+     PAGE 1 — LEXER
+════════════════════════════════ -->
+<div class="page active" id="lexer-page">
+  <div class="examples">
+    <span class="examples-label">Examples</span>
+    <button class="ex-btn" onclick="loadEx('arith')">arithmetic</button>
+    <button class="ex-btn" onclick="loadEx('ifelse')">if / else</button>
+    <button class="ex-btn" onclick="loadEx('loop')">loops</button>
+    <button class="ex-btn" onclick="loadEx('func')">functions</button>
+    <button class="ex-btn" onclick="loadEx('class')">class</button>
+    <button class="ex-btn" onclick="loadEx('errors')">with errors</button>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Source</span>
+        <span class="pill" id="char-pill">0 chars</span>
+      </div>
+      <textarea id="editor" spellcheck="false"
+        placeholder="Paste or type code here…&#10;Ctrl+Enter to tokenise."></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Token Stream</span>
+        <span class="pill" id="tok-pill">—</span>
+      </div>
+      <div id="token-stream">
+        <span class="empty">Run the lexer to see tokens</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="err-strip" id="error-section">
+    <div class="err-title" id="err-title"></div>
+    <div id="err-list"></div>
+  </div>
+
+  <div class="bottom-bar">
+    <button id="run-btn" onclick="runLexer()">▶  Tokenise</button>
+    <div class="sep"></div>
+    <div class="stat-group">
+      <div class="stat"><span class="stat-val" id="s-total">—</span><span class="stat-lbl">Tokens</span></div>
+      <div class="stat"><span class="stat-val" id="s-errors" style="color:var(--err)">—</span><span class="stat-lbl">Errors</span></div>
+      <div class="stat"><span class="stat-val" id="s-lines">—</span><span class="stat-lbl">Lines</span></div>
+      <div class="stat"><span class="stat-val" id="s-ids">—</span><span class="stat-lbl">Identifiers</span></div>
+    </div>
+    <div class="sep"></div>
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:var(--kw)"></div>keyword</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--id)"></div>identifier</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--num)"></div>number</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--op)"></div>operator</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--str)"></div>string</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--bool)"></div>bool</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--err)"></div>error</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     PAGE 2 — MY CODE
+════════════════════════════════ -->
+<div class="page" id="mycode-page">
+  <div class="mycode-top">
+    <!-- editor -->
+    <div class="mycode-editor-wrap">
+      <div class="panel-head">
+        <span class="panel-title">Your Code</span>
+        <span class="save-indicator" id="save-indicator">✓ saved</span>
+      </div>
+      <textarea id="mycode-editor" spellcheck="false"
+        placeholder="Write your own code here and click Run…&#10;&#10;Your code is saved automatically and won't disappear&#10;when you switch tabs or load examples.&#10;&#10;Press Ctrl+Enter to run."></textarea>
+    </div>
+    <!-- output -->
+    <div class="mycode-out-wrap">
+      <div class="panel-head">
+        <span class="panel-title">Token Stream</span>
+        <span class="pill" id="mycode-tok-pill">—</span>
+      </div>
+      <div id="mycode-stream">
+        <span class="empty">Run your code to see tokens</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- errors -->
+  <div class="mycode-err-strip" id="mycode-err-section">
+    <div class="err-title" id="mycode-err-title"></div>
+    <div id="mycode-err-list"></div>
+  </div>
+
+  <!-- bottom bar -->
+  <div class="mycode-bar">
+    <button id="mycode-run-btn" onclick="runMyCode()">▶  Run My Code</button>
+    <button id="mycode-clear-btn" onclick="clearMyCode()">✕ Clear</button>
+    <div class="sep"></div>
+    <div class="stat-group">
+      <div class="stat"><span class="stat-val" id="mc-total">—</span><span class="stat-lbl">Tokens</span></div>
+      <div class="stat"><span class="stat-val" id="mc-errors" style="color:var(--err)">—</span><span class="stat-lbl">Errors</span></div>
+      <div class="stat"><span class="stat-val" id="mc-lines">—</span><span class="stat-lbl">Lines</span></div>
+      <div class="stat"><span class="stat-val" id="mc-ids">—</span><span class="stat-lbl">Identifiers</span></div>
+    </div>
+    <div class="sep"></div>
+    <span class="mycode-hint">Ctrl+Enter to run · auto-saved in browser</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     PAGE 3 — PARSER
+════════════════════════════════ -->
+<div class="page" id="parser-page">
+  <div class="examples">
+    <span class="examples-label">Parser Mode</span>
+    <select class="ex-parser-select" id="parser-mode" onchange="updateParserMode()">
+      <option value="rd">Recursive Descent</option>
+      <option value="ll1">LL(1)</option>
+      <option value="slr">SLR(1)</option>
+      <option value="lalr">LALR(1)</option>
+    </select>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Source Code</span>
+        <span class="pill" id="parser-char-pill">0 chars</span>
+      </div>
+      <textarea id="parser-editor" spellcheck="false"
+        placeholder="Paste or type code here…&#10;Ctrl+Enter to parse."></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Parse Tree (AST)</span>
+        <span class="pill" id="parser-ast-pill">—</span>
+      </div>
+      <div id="parser-tree" class="parser-tree">
+        <span class="empty">Run the parser to see the AST</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="err-strip" id="parser-error-section">
+    <div class="err-title" id="parser-err-title"></div>
+    <div id="parser-err-list"></div>
+  </div>
+
+  <div class="bottom-bar">
+    <button id="parser-run-btn" onclick="runParser()">▶  Parse</button>
+    <div class="sep"></div>
+    <div class="stat-group">
+      <div class="stat"><span class="stat-val" id="p-success">—</span><span class="stat-lbl">Status</span></div>
+      <div class="stat"><span class="stat-val" id="p-parser">—</span><span class="stat-lbl">Parser</span></div>
+    </div>
+    <div class="sep"></div>
+    <span id="parser-info" style="font-size:10px; color:var(--muted);">Select parser and Ctrl+Enter to parse</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     PAGE 4 — COMPILER PIPELINE
+════════════════════════════════ -->
+<div class="page" id="compiler-page">
+  <div class="examples">
+    <span class="examples-label">Parser Mode</span>
+    <select class="ex-parser-select" id="compiler-mode" onchange="updateCompilerMode()">
+      <option value="rd">Recursive Descent</option>
+      <option value="ll1">LL(1)</option>
+      <option value="slr">SLR(1)</option>
+      <option value="lalr">LALR(1)</option>
+    </select>
+  </div>
+
+  <div class="compiler-container">
+    <div class="compiler-editor-panel">
+      <div class="panel-head">
+        <span class="panel-title">Source Code</span>
+        <span class="pill" id="compiler-char-pill">0 chars</span>
+      </div>
+      <textarea id="compiler-editor" spellcheck="false"
+        placeholder="Paste or type code here…&#10;Ctrl+Enter to compile."></textarea>
+      <div class="compiler-bottom-bar">
+        <button id="compiler-run-btn" onclick="runCompiler()">▶  Compile</button>
+        <span style="font-size:10px; color:var(--muted); margin-left:auto;">Ctrl+Enter to compile · Full pipeline</span>
+      </div>
+    </div>
+
+    <div class="compiler-flow">
+      <!-- Stage 1 -->
+      <div class="stage-box">
+        <div class="stage-header stage-1">
+          <span class="stage-number">1</span>
+          <span class="stage-title">Lexical Analysis</span>
+          <span class="stage-status" id="stage1-status">—</span>
+        </div>
+        <div class="stage-content" id="stage1-content">
+          <div class="stage-empty">Run compiler to see lexical analysis results</div>
+        </div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="stage-arrow">↓</div>
+
+      <!-- Stage 2 -->
+      <div class="stage-box">
+        <div class="stage-header stage-2">
+          <span class="stage-number">2</span>
+          <span class="stage-title">Syntax Analysis (Parser)</span>
+          <span class="stage-status" id="stage2-status">—</span>
+        </div>
+        <div class="stage-content" id="stage2-content">
+          <div class="stage-empty">Parse tree will appear here</div>
+        </div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="stage-arrow">↓</div>
+
+      <!-- Stage 3 -->
+      <div class="stage-box">
+        <div class="stage-header stage-3">
+          <span class="stage-number">3</span>
+          <span class="stage-title">Semantic Analysis</span>
+          <span class="stage-status" id="stage3-status">—</span>
+        </div>
+        <div class="stage-content" id="stage3-content">
+          <div class="stage-empty">Symbol table and validation will appear here</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     PAGE 5 — DFA VISUALIZER
+════════════════════════════════ -->
+<div class="page" id="dfa-page">
+  <div class="dfa-toolbar">
+    <label>Show DFA for:</label>
+    <select class="dfa-select" id="dfa-mode" onchange="renderDFA()">
+      <option value="all">Full Language DFA</option>
+      <option value="number">Numbers (int/float)</option>
+      <option value="identifier">Identifier / Keyword</option>
+      <option value="string">String Literal</option>
+      <option value="operator">Operators</option>
+      <option value="comment">Comment</option>
+    </select>
+    <span class="dfa-hint">Click a state card → highlight it · scroll/pinch to zoom</span>
+  </div>
+
+  <div class="dfa-wrap">
+    <div id="dfa-canvas-wrap">
+      <canvas id="dfa-canvas"></canvas>
+      <div class="zoom-btns">
+        <button class="zoom-btn" onclick="dfaZoom(1.2)">+</button>
+        <button class="zoom-btn" onclick="dfaZoom(0.83)">−</button>
+        <button class="zoom-btn" onclick="dfaReset()" title="reset">⌂</button>
+      </div>
+    </div>
+
+    <div class="dfa-side">
+      <div class="dfa-side-head">States</div>
+      <div class="dfa-side-body" id="state-list"></div>
+
+      <!-- Token stepper -->
+      <div class="stepper">
+        <div class="stepper-title">Step through tokens</div>
+        <div class="stepper-tok" id="step-tok">
+          <span style="color:var(--muted);font-size:11px">Run lexer first</span>
+        </div>
+        <div class="step-nav">
+          <button class="step-btn" id="step-prev" onclick="stepToken(-1)" disabled>◀ Prev</button>
+          <button class="step-btn" id="step-next" onclick="stepToken(1)"  disabled>Next ▶</button>
+        </div>
+        <div class="step-counter" id="step-counter"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   EXAMPLES
+════════════════════════════════════════════════════════ */
+const EXAMPLES = {
+  arith:  `x = 42\ny = -3.14\nz = 1.5e10\nresult = (x + y) * z / 2\nprint(result)`,
+  ifelse: `age = 20\nif age >= 18:\n    status = "adult"\nelif age > 12:\n    status = "teen"\nelse:\n    status = "child"\nprint(status)`,
+  loop:   `total = 0\nfor i in range(10):\n    total = total + i\n\ncount = 0\nwhile count < 5:\n    count += 1\n    if count == 3:\n        break\ncontinue`,
+  func:   `def factorial(n):\n    if n == 0:\n        return 1\n    else:\n        return n * factorial(n - 1)\n\ndef add(a, b):\n    return a + b\n\nresult = factorial(5)\nprint(add(result, 10))`,
+  class:  `class Animal:\n    def __init__(self, name):\n        self.name = name\n\n    def speak(self):\n        return "Hello from " + self.name\n\ndog = Animal("Rex")\nprint(dog.speak())`,
+  errors: `x = 10\ny = @invalid\nz = x + y\nw = #comment is ok\nbad = $nope\nalso_bad = \`here\`\nresult = z * 2`,
+};
+
+/* ════════════════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════════════════ */
+function switchTab(name) {
+  const names = ['lexer','mycode','parser','compiler','dfa'];
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(name + '-page').classList.add('active');
+  if (name === 'dfa') { setTimeout(()=>{ initCanvas(); renderDFA(); }, 30); }
+}
+
+/* ════════════════════════════════════════════════════════
+   MY CODE PAGE — persistent editor
+════════════════════════════════════════════════════════ */
+const MY_CODE_KEY = 'lexerlab_mycode';
+const mcEd = document.getElementById('mycode-editor');
+
+// restore saved code on load
+(function restoreMyCode() {
+  try {
+    const saved = localStorage.getItem(MY_CODE_KEY);
+    if (saved) mcEd.value = saved;
+  } catch(e) {}
+})();
+
+// auto-save with debounce
+let saveTimer = null;
+const saveIndicator = document.getElementById('save-indicator');
+
+mcEd.addEventListener('input', () => {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(MY_CODE_KEY, mcEd.value);
+      saveIndicator.classList.add('show');
+      setTimeout(() => saveIndicator.classList.remove('show'), 1200);
+    } catch(e) {}
+  }, 600);
+});
+
+mcEd.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); runMyCode(); }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = mcEd.selectionStart, end = mcEd.selectionEnd;
+    mcEd.value = mcEd.value.substring(0, s) + '    ' + mcEd.value.substring(end);
+    mcEd.selectionStart = mcEd.selectionEnd = s + 4;
+  }
+});
+
+function clearMyCode() {
+  if (mcEd.value && !confirm('Clear your code? This cannot be undone.')) return;
+  mcEd.value = '';
+  try { localStorage.removeItem(MY_CODE_KEY); } catch(e) {}
+  document.getElementById('mycode-stream').innerHTML = '<span class="empty">Run your code to see tokens</span>';
+  document.getElementById('mycode-err-section').classList.remove('visible');
+  ['mc-total','mc-errors','mc-lines','mc-ids'].forEach(id => document.getElementById(id).textContent = '—');
+  document.getElementById('mycode-tok-pill').textContent = '—';
+}
+
+async function runMyCode() {
+  const src = mcEd.value;
+  if (!src.trim()) return;
+
+  const btn = document.getElementById('mycode-run-btn');
+  btn.classList.add('loading'); btn.textContent = '…';
+
+  let data;
+  try {
+    const res = await fetch('/lex', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({source: src}),
+    });
+    data = await res.json();
+  } catch(e) {
+    alert('Could not reach server. Is server.py running?\n\n' + e);
+    btn.classList.remove('loading'); btn.textContent = '▶  Run My Code'; return;
+  }
+
+  btn.classList.remove('loading'); btn.textContent = '▶  Run My Code';
+  if (data.error) { alert('Server error: ' + data.error); return; }
+
+  const tokens = data.tokens;
+  const errors = data.errors;
+
+  // also update lastTokens so DFA stepper works with my code too
+  lastTokens = tokens; stepIdx = 0; updateStepper();
+
+  const stream = document.getElementById('mycode-stream');
+  stream.innerHTML = '';
+  tokens.forEach((t, idx) => {
+    const div = document.createElement('div');
+    div.className = `tok tk-${t.type}`;
+    div.dataset.tip = `line ${t.line}, col ${t.col}`;
+    div.style.animationDelay = Math.min(idx * 10, 500) + 'ms';
+    div.innerHTML = `<span class="tok-type">${t.type}</span><span class="tok-val">${esc(t.value)}</span>`;
+    stream.appendChild(div);
+  });
+  if (tokens.length === 0) stream.innerHTML = '<span class="empty">No tokens produced.</span>';
+
+  const ids = new Set(tokens.filter(t=>t.type==='IDENTIFIER').map(t=>t.value));
+  document.getElementById('mc-total').textContent  = tokens.length;
+  document.getElementById('mc-errors').textContent = errors.length;
+  document.getElementById('mc-lines').textContent  = src.split('\n').length;
+  document.getElementById('mc-ids').textContent    = ids.size;
+  document.getElementById('mycode-tok-pill').textContent = tokens.length + ' tokens';
+
+  const errSec = document.getElementById('mycode-err-section');
+  if (errors.length > 0) {
+    document.getElementById('mycode-err-title').textContent =
+      errors.length + (errors.length === 1 ? ' error found' : ' errors found');
+    document.getElementById('mycode-err-list').innerHTML =
+      errors.map(e => `<div class="err-item">${esc(e.message)} — line ${e.line}, col ${e.col}</div>`).join('');
+    errSec.classList.add('visible');
+  } else { errSec.classList.remove('visible'); }
+}
+
+/* ════════════════════════════════════════════════════════
+   LEXER PAGE
+════════════════════════════════════════════════════════ */
+const ed = document.getElementById('editor');
+ed.addEventListener('input', () => {
+  document.getElementById('char-pill').textContent = ed.value.length + ' chars';
+});
+ed.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); runLexer(); }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = ed.selectionStart, end = ed.selectionEnd;
+    ed.value = ed.value.substring(0, s) + '    ' + ed.value.substring(end);
+    ed.selectionStart = ed.selectionEnd = s + 4;
+  }
+});
+
+function loadEx(key) {
+  ed.value = EXAMPLES[key];
+  ed.dispatchEvent(new Event('input'));
+  runLexer();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let lastTokens = [];
+
+async function runLexer() {
+  const src = ed.value;
+  if (!src.trim()) return;
+  const btn = document.getElementById('run-btn');
+  btn.classList.add('loading'); btn.textContent = '…';
+  let data;
+  try {
+    const res = await fetch('/lex', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({source: src}),
+    });
+    data = await res.json();
+  } catch(e) {
+    alert('Could not reach server. Is server.py running?\n\n' + e);
+    btn.classList.remove('loading'); btn.textContent = '▶  Tokenise'; return;
+  }
+  btn.classList.remove('loading'); btn.textContent = '▶  Tokenise';
+  if (data.error) { alert('Server error: ' + data.error); return; }
+
+  const tokens = data.tokens;
+  const errors = data.errors;
+  lastTokens = tokens;
+
+  const stream = document.getElementById('token-stream');
+  stream.innerHTML = '';
+  tokens.forEach((t, idx) => {
+    const div = document.createElement('div');
+    div.className = `tok tk-${t.type}`;
+    div.dataset.tip = `line ${t.line}, col ${t.col}`;
+    div.style.animationDelay = Math.min(idx * 10, 500) + 'ms';
+    div.innerHTML = `<span class="tok-type">${t.type}</span><span class="tok-val">${esc(t.value)}</span>`;
+    stream.appendChild(div);
+  });
+  if (tokens.length === 0) stream.innerHTML = '<span class="empty">No tokens produced.</span>';
+
+  const ids = new Set(tokens.filter(t=>t.type==='IDENTIFIER').map(t=>t.value));
+  document.getElementById('s-total').textContent  = tokens.length;
+  document.getElementById('s-errors').textContent = errors.length;
+  document.getElementById('s-lines').textContent  = src.split('\n').length;
+  document.getElementById('s-ids').textContent    = ids.size;
+  document.getElementById('tok-pill').textContent = tokens.length + ' tokens';
+
+  const errSec = document.getElementById('error-section');
+  if (errors.length > 0) {
+    document.getElementById('err-title').textContent =
+      errors.length + (errors.length === 1 ? ' error found' : ' errors found');
+    document.getElementById('err-list').innerHTML =
+      errors.map(e => `<div class="err-item">${esc(e.message)} — line ${e.line}, col ${e.col}</div>`).join('');
+    errSec.classList.add('visible');
+  } else { errSec.classList.remove('visible'); }
+
+  // update stepper
+  stepIdx = 0;
+  updateStepper();
+}
+
+/* ════════════════════════════════════════════════════════
+   TOKEN STEPPER
+════════════════════════════════════════════════════════ */
+let stepIdx = 0;
+
+function stepToken(dir) {
+  stepIdx = Math.max(0, Math.min(lastTokens.length - 1, stepIdx + dir));
+  updateStepper();
+  highlightStateForToken(lastTokens[stepIdx]);
+}
+
+function updateStepper() {
+  const prev = document.getElementById('step-prev');
+  const next = document.getElementById('step-next');
+  const ctr  = document.getElementById('step-counter');
+  const box  = document.getElementById('step-tok');
+
+  if (lastTokens.length === 0) {
+    box.innerHTML = '<span style="color:var(--muted);font-size:11px">Run lexer first</span>';
+    prev.disabled = next.disabled = true;
+    ctr.textContent = '';
+    return;
+  }
+  const t = lastTokens[stepIdx];
+  box.innerHTML = `<span class="stepper-type">${t.type}</span><span class="stepper-val">${esc(t.value)}</span>`;
+  prev.disabled = stepIdx === 0;
+  next.disabled = stepIdx === lastTokens.length - 1;
+  ctr.textContent = `${stepIdx + 1} / ${lastTokens.length}`;
+}
+
+/* ════════════════════════════════════════════════════════
+   PARSER PAGE
+════════════════════════════════════════════════════════ */
+const parserEd = document.getElementById('parser-editor');
+let currentParserMode = 'rd';
+
+parserEd.addEventListener('input', () => {
+  document.getElementById('parser-char-pill').textContent = parserEd.value.length + ' chars';
+});
+
+parserEd.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); runParser(); }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = parserEd.selectionStart, end = parserEd.selectionEnd;
+    parserEd.value = parserEd.value.substring(0, s) + '    ' + parserEd.value.substring(end);
+    parserEd.selectionStart = parserEd.selectionEnd = s + 4;
+  }
+});
+
+function updateParserMode() {
+  currentParserMode = document.getElementById('parser-mode').value;
+}
+
+function buildTreeHTML(node, depth = 0) {
+  const nodeId = 'node-' + Math.random().toString(36).substr(2, 9);
+  let html = '<div class="tree-node">';
+  
+  if (node.children && node.children.length > 0) {
+    html += `<span class="tree-toggle expanded" onclick="toggleNode('${nodeId}')"></span>`;
+  } else {
+    html += '<span style="width:16px; display:inline-block;"></span>';
+  }
+  
+  html += `<span class="tree-label">${esc(node.kind)}</span>`;
+  
+  if (node.value !== null && node.value !== undefined) {
+    html += `<span class="tree-value">${esc(JSON.stringify(node.value))}</span>`;
+  }
+  
+  if (node.children && node.children.length > 0) {
+    html += `<div class="tree-children" id="${nodeId}">`;
+    node.children.forEach(child => {
+      html += buildTreeHTML(child, depth + 1);
+    });
+    html += '</div>';
+  }
+  
+  html += '</div>';
+  return html;
+}
+
+function toggleNode(nodeId) {
+  const node = document.getElementById(nodeId);
+  const toggle = node.previousElementSibling;
+  if (node.classList.contains('hidden')) {
+    node.classList.remove('hidden');
+    toggle.classList.add('expanded');
+    toggle.classList.remove('collapsed');
+  } else {
+    node.classList.add('hidden');
+    toggle.classList.remove('expanded');
+    toggle.classList.add('collapsed');
+  }
+}
+
+async function runParser() {
+  const src = parserEd.value;
+  if (!src.trim()) return;
+
+  const btn = document.getElementById('parser-run-btn');
+  btn.classList.add('loading'); btn.textContent = '…';
+
+  let data;
+  try {
+    const res = await fetch('/parse', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({source: src, mode: currentParserMode}),
+    });
+    data = await res.json();
+  } catch(e) {
+    alert('Could not reach server. Is server.py running?\n\n' + e);
+    btn.classList.remove('loading'); btn.textContent = '▶  Parse'; return;
+  }
+
+  btn.classList.remove('loading'); btn.textContent = '▶  Parse';
+  
+  // Check for server errors
+  if (data.error) { 
+    alert('Parser error: ' + data.error + (data.traceback ? '\n\n' + data.traceback : ''));
+    return; 
+  }
+
+  // Extract stages
+  const lexStage = data.stage1_lexer || {};
+  const parseStage = data.stage2_parser || {};
+
+  // Update status
+  document.getElementById('p-success').textContent = parseStage.success ? '✓ Success' : '✗ Failed';
+  document.getElementById('p-parser').textContent = parseStage.parser || '—';
+  document.getElementById('p-success').style.color = parseStage.success ? 'var(--num)' : 'var(--err)';
+
+  // Display Stage 1: Lexer tokens
+  const tree = document.getElementById('parser-tree');
+  let treeHtml = '';
+  
+  // Lexer stage header
+  treeHtml += `<div style="padding:10px; background:rgba(52,211,153,.1); border-radius:4px; margin-bottom:10px; border-left:3px solid var(--num);">
+    <div style="font-weight:bold; color:var(--num); font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">
+      Stage 1: Lexical Analysis
+    </div>
+    <div style="font-size:10px; color:var(--muted);">
+      ${lexStage.token_count || 0} tokens produced
+    </div>
+  </div>`;
+  
+  // Lexer tokens
+  if (lexStage.tokens && lexStage.tokens.length > 0) {
+    treeHtml += '<div style="margin-left:8px; margin-bottom:10px; font-size:9px;">';
+    lexStage.tokens.forEach((tok, idx) => {
+      treeHtml += `<div style="padding:2px 4px; color:var(--accent); margin:1px 0;">
+        [${idx}] <span style="color:var(--muted);">${esc(tok.type)}</span>: <span style="color:var(--num);">${esc(tok.value)}</span>
+      </div>`;
+    });
+    treeHtml += '</div>';
+  }
+  
+  // Parser stage header
+  treeHtml += `<div style="padding:10px; background:rgba(124,106,247,.1); border-radius:4px; margin-bottom:10px; border-left:3px solid var(--accent);">
+    <div style="font-weight:bold; color:var(--accent2); font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">
+      Stage 2: Syntax Analysis
+    </div>
+    <div style="font-size:10px; color:var(--muted);">
+      Parser: ${parseStage.parser || '—'} | Status: ${parseStage.success ? '✓ Success' : '✗ Failed'}
+    </div>
+  </div>`;
+  
+  // Parser AST tree
+  if (parseStage.ast) {
+    treeHtml += buildTreeHTML(parseStage.ast);
+  } else if (parseStage.error) {
+    treeHtml += `<div style="color:var(--err); padding:8px; border-radius:4px; background:rgba(248,113,113,.1);">
+      ✕ Parse Error: ${esc(parseStage.error.message || JSON.stringify(parseStage.error))}
+    </div>`;
+  } else {
+    treeHtml += '<span class="empty">No AST generated</span>';
+  }
+  
+  tree.innerHTML = treeHtml;
+  document.getElementById('parser-ast-pill').textContent = parseStage.ast ? 'AST Ready' : (parseStage.error ? 'Error' : '—');
+
+  // Display errors
+  const errSec = document.getElementById('parser-error-section');
+  if (lexStage.errors && lexStage.errors.length > 0) {
+    document.getElementById('parser-err-title').textContent = 
+      'Lexer Errors (' + lexStage.errors.length + ')';
+    document.getElementById('parser-err-list').innerHTML =
+      lexStage.errors.map(e => `<div class="err-item">${esc(e.message || JSON.stringify(e))} — line ${e.line || '?'}, col ${e.col || '?'}</div>`).join('');
+    errSec.classList.add('visible');
+  } else if (parseStage.error) {
+    document.getElementById('parser-err-title').textContent = 'Parse Error';
+    document.getElementById('parser-err-list').innerHTML =
+      `<div class="err-item">${esc(parseStage.error.message || JSON.stringify(parseStage.error))} — line ${parseStage.error.line || '?'}, col ${parseStage.error.col || '?'}</div>`;
+    errSec.classList.add('visible');
+  } else { 
+    errSec.classList.remove('visible'); 
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   COMPILER PAGE
+════════════════════════════════════════════════════════ */
+const compEd = document.getElementById('compiler-editor');
+let currentCompilerMode = 'rd';
+
+compEd.addEventListener('input', () => {
+  document.getElementById('compiler-char-pill').textContent = compEd.value.length + ' chars';
+});
+
+compEd.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); runCompiler(); }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = compEd.selectionStart, end = compEd.selectionEnd;
+    compEd.value = compEd.value.substring(0, s) + '    ' + compEd.value.substring(end);
+    compEd.selectionStart = compEd.selectionEnd = s + 4;
+  }
+});
+
+function updateCompilerMode() {
+  currentCompilerMode = document.getElementById('compiler-mode').value;
+}
+
+function buildStageHTML(stage, stageNum) {
+  let html = '';
+  
+  if (stageNum === 1) {
+    // Lexical Analysis - show tokens
+    html += '<div class="stage-tokens">';
+    if (stage.tokens && stage.tokens.length > 0) {
+      stage.tokens.forEach(tok => {
+        html += `<div class="stage-tok">${esc(tok.type)}<br><strong>${esc(tok.value.substr(0, 8))}</strong></div>`;
+      });
+    } else {
+      html += '<div class="stage-empty">No tokens</div>';
+    }
+    html += '</div>';
+    
+    if (stage.errors && stage.errors.length > 0) {
+      html += '<div style="margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">';
+      html += `<div style="color:var(--err); font-weight:bold; margin-bottom:6px;">✕ Errors (${stage.errors.length}):</div>`;
+      stage.errors.forEach(err => {
+        html += `<div style="font-size:11px; color:var(--err); margin:4px 0;">${esc(err.message)}</div>`;
+      });
+      html += '</div>';
+    }
+  } else if (stageNum === 2) {
+    // Syntax Analysis - show AST tree
+    if (stage.ast) {
+      html += buildTreeHTML(stage.ast);
+    } else {
+      html += '<div class="stage-empty">No AST</div>';
+    }
+    
+    if (stage.errors && stage.errors.length > 0) {
+      html += '<div style="margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">';
+      html += `<div style="color:var(--err); font-weight:bold; margin-bottom:6px;">✕ Errors (${stage.errors.length}):</div>`;
+      stage.errors.forEach(err => {
+        html += `<div style="font-size:11px; color:var(--err); margin:4px 0;">${esc(err.message || JSON.stringify(err))}</div>`;
+      });
+      html += '</div>';
+    }
+  } else if (stageNum === 3) {
+    // Semantic Analysis - show symbol table and errors
+    if (stage.symbol_table && Object.keys(stage.symbol_table).length > 0) {
+      html += '<div style="margin-bottom:12px;">';
+      html += '<div style="font-weight:bold; color:var(--accent2); margin-bottom:6px; font-size:11px; text-transform:uppercase;">Symbol Table:</div>';
+      html += '<table class="symbol-table">';
+      html += '<thead><tr><th>Name</th><th>Type</th><th>Kind</th></tr></thead>';
+      html += '<tbody>';
+      
+      // Flatten symbol table
+      const allSymbols = [];
+      for (let scope in stage.symbol_table) {
+        for (let name in stage.symbol_table[scope]) {
+          allSymbols.push(stage.symbol_table[scope][name]);
+        }
+      }
+      
+      allSymbols.forEach(sym => {
+        if (sym && sym.name) {
+          html += `<tr><td>${esc(sym.name)}</td><td>${esc(sym.type || '?')}</td><td>${esc(sym.kind || '?')}</td></tr>`;
+        }
+      });
+      
+      html += '</tbody></table>';
+      html += '</div>';
+    }
+    
+    if (stage.errors && stage.errors.length > 0) {
+      html += '<div style="border-top:1px solid var(--border); padding-top:10px;">';
+      html += `<div style="color:var(--err); font-weight:bold; margin-bottom:6px;">✕ Semantic Errors (${stage.errors.length}):</div>`;
+      stage.errors.forEach(err => {
+        html += `<div style="font-size:11px; color:var(--err); margin:4px 0;">${esc(err.message || JSON.stringify(err))}</div>`;
+      });
+      html += '</div>';
+    } else if (stage.warnings && stage.warnings.length > 0) {
+      html += '<div style="border-top:1px solid var(--border); padding-top:10px;">';
+      html += `<div style="color:var(--accent2); font-weight:bold; margin-bottom:6px;">⚠ Warnings (${stage.warnings.length}):</div>`;
+      stage.warnings.forEach(warn => {
+        html += `<div style="font-size:11px; color:var(--accent2); margin:4px 0;">${esc(warn.message || JSON.stringify(warn))}</div>`;
+      });
+      html += '</div>';
+    }
+    
+    if (!stage.errors || stage.errors.length === 0) {
+      html += '<div style="color:var(--num); padding:10px; border-radius:4px; background:rgba(52,211,153,.1); margin-top:10px;">✓ All semantic checks passed</div>';
+    }
+  }
+  
+  return html;
+}
+
+async function runCompiler() {
+  const src = compEd.value;
+  if (!src.trim()) return;
+
+  const btn = document.getElementById('compiler-run-btn');
+  btn.classList.add('loading'); btn.textContent = '…';
+
+  let data;
+  try {
+    const res = await fetch('/compile', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({source: src, mode: currentCompilerMode}),
+    });
+    data = await res.json();
+  } catch(e) {
+    alert('Could not reach server. Is server.py running?\n\n' + e);
+    btn.classList.remove('loading'); btn.textContent = '▶  Compile'; return;
+  }
+
+  btn.classList.remove('loading'); btn.textContent = '▶  Compile';
+  
+  if (data.error) { 
+    alert('Compiler error: ' + data.error);
+    return; 
+  }
+
+  // Render all stages
+  const stages = data.stages || [];
+  
+  stages.forEach((stage, idx) => {
+    const stageNum = idx + 1;
+    const stageId = `stage${stageNum}-content`;
+    const statusId = `stage${stageNum}-status`;
+    
+    const stageContent = document.getElementById(stageId);
+    const stageStatus = document.getElementById(statusId);
+    
+    if (stageContent) {
+      stageContent.innerHTML = buildStageHTML(stage, stageNum);
+    }
+    
+    if (stageStatus) {
+      const success = stage.success;
+      const errorCount = stage.error_count || 0;
+      
+      stageStatus.textContent = success ? '✓ OK' : (errorCount ? `✕ ${errorCount} error${errorCount > 1 ? 's' : ''}` : '—');
+      stageStatus.classList.remove('success', 'error');
+      stageStatus.classList.add(success ? 'success' : 'error');
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════
+   DFA DEFINITIONS
+════════════════════════════════════════════════════════ */
+
+// Colour palette
+const C = {
+  start:  '#7c6af7',
+  accept: '#34d399',
+  trap:   '#f87171',
+  normal: '#363a50',
+  active: '#fbbf24',
+  text:   '#e2e4ed',
+  muted:  '#6b7099',
+  edge:   '#4a5075',
+  edgeHL: '#fbbf24',
+  bg:     '#0e0f14',
+};
+
+// ── DFA graph data ────────────────────────────────────────
+const DFA_GRAPHS = {
+
+  number: {
+    desc: 'Integers and Floats (including scientific notation)',
+    states: [
+      { id:'S',    label:'S',          x:80,  y:200, start:true,  accept:false, desc:'Start state. Expects a digit or decimal point.' },
+      { id:'INT',  label:'INT',        x:240, y:120, start:false, accept:true,  desc:'Integer body. Consumed one or more digits.' },
+      { id:'DOT',  label:'DOT',        x:400, y:200, start:false, accept:false, desc:'Seen decimal point after digits.' },
+      { id:'FRAC', label:'FRAC',       x:560, y:120, start:false, accept:true,  desc:'Fractional digits after the decimal point.' },
+      { id:'ES',   label:'EXP_S',      x:560, y:300, start:false, accept:false, desc:'Seen e/E exponent marker.' },
+      { id:'ESG',  label:'EXP_SIGN',   x:700, y:380, start:false, accept:false, desc:'Optional + or − after exponent marker.' },
+      { id:'ED',   label:'EXP_DIGITS', x:700, y:200, start:false, accept:true,  desc:'Digits of the exponent. Accepting state.' },
+      { id:'ERR',  label:'ERR',        x:240, y:320, start:false, accept:false, trap:true, desc:'Error / dead state. Invalid character.' },
+    ],
+    edges: [
+      { from:'S',    to:'INT',  label:'0-9' },
+      { from:'S',    to:'DOT',  label:'\'.\'  (if .5)' },
+      { from:'S',    to:'ERR',  label:'other' },
+      { from:'INT',  to:'INT',  label:'0-9' },
+      { from:'INT',  to:'DOT',  label:'\'.\''},
+      { from:'INT',  to:'ES',   label:'e/E' },
+      { from:'INT',  to:'ERR',  label:'other' },
+      { from:'DOT',  to:'FRAC', label:'0-9' },
+      { from:'DOT',  to:'ERR',  label:'other' },
+      { from:'FRAC', to:'FRAC', label:'0-9' },
+      { from:'FRAC', to:'ES',   label:'e/E' },
+      { from:'FRAC', to:'ERR',  label:'other' },
+      { from:'ES',   to:'ESG',  label:'+/-' },
+      { from:'ES',   to:'ED',   label:'0-9' },
+      { from:'ESG',  to:'ED',   label:'0-9' },
+      { from:'ESG',  to:'ERR',  label:'other' },
+      { from:'ED',   to:'ED',   label:'0-9' },
+      { from:'ED',   to:'ERR',  label:'other' },
+    ],
+  },
+
+  identifier: {
+    desc: 'Identifiers and Keywords',
+    states: [
+      { id:'S',     label:'S',          x:100, y:200, start:true,  accept:false, desc:'Start. Expects a letter or underscore.' },
+      { id:'IDENT', label:'IDENT',      x:300, y:200, start:false, accept:true,  desc:'Identifier body. Letters, digits, underscore.' },
+      { id:'KW',    label:'KEYWORD',    x:500, y:120, start:false, accept:true,  desc:'Accepting: value matched a reserved keyword.' },
+      { id:'BOOL',  label:'BOOLEAN',    x:500, y:280, start:false, accept:true,  desc:'Accepting: value is True / False / None.' },
+      { id:'ERR',   label:'ERR',        x:300, y:350, start:false, accept:false, trap:true, desc:'Dead state. Invalid start character.' },
+    ],
+    edges: [
+      { from:'S',     to:'IDENT', label:'[a-zA-Z_]' },
+      { from:'S',     to:'ERR',   label:'other' },
+      { from:'IDENT', to:'IDENT', label:'[a-zA-Z0-9_]' },
+      { from:'IDENT', to:'KW',    label:'if in dict set …' },
+      { from:'IDENT', to:'BOOL',  label:'True/False/None' },
+    ],
+  },
+
+  string: {
+    desc: 'String Literals (single and double quoted)',
+    states: [
+      { id:'S',    label:'S',        x:80,  y:200, start:true,  accept:false, desc:'Start. Expects opening quote.' },
+      { id:'OPEN', label:'OPEN',     x:260, y:200, start:false, accept:false, desc:'Inside string body after opening quote.' },
+      { id:'ESC',  label:'ESC',      x:440, y:120, start:false, accept:false, desc:'Escape sequence: next char is literal.' },
+      { id:'DONE', label:'ACCEPT',   x:620, y:200, start:false, accept:true,  desc:'Closing quote seen. String complete.' },
+      { id:'ERR',  label:'ERR',      x:260, y:340, start:false, accept:false, trap:true, desc:'Unclosed string or invalid character.' },
+    ],
+    edges: [
+      { from:'S',    to:'OPEN', label:'"  or  \'' },
+      { from:'S',    to:'ERR',  label:'other' },
+      { from:'OPEN', to:'OPEN', label:'any char' },
+      { from:'OPEN', to:'ESC',  label:'\\' },
+      { from:'OPEN', to:'DONE', label:'matching quote' },
+      { from:'ESC',  to:'OPEN', label:'any char' },
+      { from:'DONE', to:'ERR',  label:'extra chars' },
+    ],
+  },
+
+  operator: {
+    desc: 'Operators (single and compound)',
+    states: [
+      { id:'S',    label:'S',       x:80,  y:200, start:true,  accept:false, desc:'Start. Expects an operator character.' },
+      { id:'OP1',  label:'OP1',     x:280, y:120, start:false, accept:true,  desc:'Single-char operator accepted (+, -, *, …).' },
+      { id:'OP2',  label:'OP2',     x:480, y:120, start:false, accept:true,  desc:'Two-char operator (==, !=, <=, **, //, …).' },
+      { id:'OP3',  label:'OP3',     x:680, y:120, start:false, accept:true,  desc:'Three-char operator (<<=, >>=, …).' },
+      { id:'ERR',  label:'ERR',     x:280, y:320, start:false, accept:false, trap:true, desc:'Dead state. Not an operator character.' },
+    ],
+    edges: [
+      { from:'S',   to:'OP1', label:'+ - * / % < > = ! & | ^ ~' },
+      { from:'S',   to:'ERR', label:'other' },
+      { from:'OP1', to:'OP2', label:'= or matching 2nd char' },
+      { from:'OP2', to:'OP3', label:'= (for <<= >>=)' },
+    ],
+  },
+
+  comment: {
+    desc: 'Comments (# to end of line)',
+    states: [
+      { id:'S',    label:'S',       x:100, y:200, start:true,  accept:false, desc:'Start. Must see # to begin a comment.' },
+      { id:'CMT',  label:'CMT',     x:320, y:200, start:false, accept:true,  desc:'Comment body. Consume until newline.' },
+      { id:'DONE', label:'DONE',    x:540, y:200, start:false, accept:true,  desc:'Newline reached. Comment complete.' },
+      { id:'ERR',  label:'ERR',     x:320, y:350, start:false, accept:false, trap:true, desc:'No # seen. Not a comment.' },
+    ],
+    edges: [
+      { from:'S',   to:'CMT',  label:'#' },
+      { from:'S',   to:'ERR',  label:'other' },
+      { from:'CMT', to:'CMT',  label:'any char (not \\n)' },
+      { from:'CMT', to:'DONE', label:'\\n' },
+    ],
+  },
+
+  all: {
+    desc: 'Full Language DFA — all token classes',
+    states: [
+      { id:'S',    label:'START',      x:380, y:280, start:true,  accept:false, desc:'Initial state. First character determines the token class.' },
+      { id:'INT',  label:'INTEGER',    x:160, y:100, start:false, accept:true,  desc:'Recognises integer literals.' },
+      { id:'FLT',  label:'FLOAT',      x:340, y:80,  start:false, accept:true,  desc:'Recognises float literals (with decimal / exponent).' },
+      { id:'ID',   label:'IDENTIFIER', x:600, y:100, start:false, accept:true,  desc:'Recognises identifiers.' },
+      { id:'KW',   label:'KEYWORD',    x:760, y:160, start:false, accept:true,  desc:'Reserved keyword (subset of IDENTIFIER).' },
+      { id:'BOOL', label:'BOOLEAN',    x:760, y:60,  start:false, accept:true,  desc:'True / False / None.' },
+      { id:'STR',  label:'STRING',     x:600, y:360, start:false, accept:true,  desc:'String literal enclosed in quotes.' },
+      { id:'OP',   label:'OPERATOR',   x:160, y:360, start:false, accept:true,  desc:'Arithmetic or comparison operator.' },
+      { id:'PCT',  label:'PUNCT',      x:380, y:440, start:false, accept:true,  desc:'Punctuation: ( ) { } [ ] : , . ;' },
+      { id:'CMT',  label:'COMMENT',    x:160, y:220, start:false, accept:true,  desc:'Comment: # to end of line.' },
+      { id:'WS',   label:'WHITESPACE', x:380, y:160, start:false, accept:false, desc:'Spaces/tabs — consumed silently, no token emitted.' },
+      { id:'ERR',  label:'ERROR',      x:600, y:440, start:false, accept:false, trap:true, desc:'Unrecognised character — error token emitted.' },
+    ],
+    edges: [
+      { from:'S',   to:'INT',  label:'0-9' },
+      { from:'S',   to:'FLT',  label:'. (digit)' },
+      { from:'S',   to:'ID',   label:'letter/_' },
+      { from:'S',   to:'STR',  label:'"  \'' },
+      { from:'S',   to:'OP',   label:'+ - * / % …' },
+      { from:'S',   to:'PCT',  label:'( ) { } : …' },
+      { from:'S',   to:'CMT',  label:'#' },
+      { from:'S',   to:'WS',   label:'space/tab' },
+      { from:'S',   to:'ERR',  label:'@ $ ` …' },
+      { from:'INT', to:'FLT',  label:'. or e/E' },
+      { from:'INT', to:'S',    label:'(emit → restart)' },
+      { from:'FLT', to:'S',    label:'(emit → restart)' },
+      { from:'ID',  to:'KW',   label:'reserved word' },
+      { from:'ID',  to:'BOOL', label:'True/False/None' },
+      { from:'ID',  to:'S',    label:'(emit → restart)' },
+      { from:'KW',  to:'S',    label:'(emit → restart)' },
+      { from:'STR', to:'S',    label:'(emit → restart)' },
+      { from:'OP',  to:'OP',   label:'compound (2nd char)' },
+      { from:'CMT', to:'S',    label:'(emit → restart)' },
+    ],
+  },
+};
+
+/* state → which DFA state lights up for each token type */
+const TOKEN_TO_STATE = {
+  INTEGER:    { all:'INT',  number:'INT'  },
+  FLOAT:      { all:'FLT',  number:'FRAC' },
+  IDENTIFIER: { all:'ID',   identifier:'IDENT' },
+  KEYWORD:    { all:'KW',   identifier:'KW'    },
+  BOOLEAN:    { all:'BOOL', identifier:'BOOL'  },
+  STRING:     { all:'STR',  string:'DONE'  },
+  OPERATOR:   { all:'OP',   operator:'OP1' },
+  LPAREN:     { all:'PCT'  }, RPAREN:   { all:'PCT' },
+  LBRACE:     { all:'PCT'  }, RBRACE:   { all:'PCT' },
+  LBRACKET:   { all:'PCT'  }, RBRACKET: { all:'PCT' },
+  COLON:      { all:'PCT'  }, COMMA:    { all:'PCT' },
+  DOT:        { all:'PCT'  }, SEMICOLON:{ all:'PCT' },
+  COMMENT:    { all:'CMT',  comment:'DONE' },
+  ERROR:      { all:'ERR', number:'ERR', identifier:'ERR', string:'ERR', operator:'ERR', comment:'ERR' },
+};
+
+/* ════════════════════════════════════════════════════════
+   CANVAS + DRAWING
+════════════════════════════════════════════════════════ */
+let canvas, ctx, wrapEl;
+let viewX = 0, viewY = 0, viewScale = 1;
+let dragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
+let currentGraph = null;
+let activeStateId = null;
+
+function initCanvas() {
+  if (canvas) return;
+  wrapEl = document.getElementById('dfa-canvas-wrap');
+  canvas = document.getElementById('dfa-canvas');
+  ctx    = canvas.getContext('2d');
+  resize();
+  window.addEventListener('resize', resize);
+
+  // pan
+  canvas.addEventListener('mousedown', e => {
+    dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
+    viewStartX = viewX; viewStartY = viewY;
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    viewX = viewStartX + (e.clientX - dragStartX);
+    viewY = viewStartY + (e.clientY - dragStartY);
+    drawGraph();
+  });
+  canvas.addEventListener('mouseup', () => dragging = false);
+  canvas.addEventListener('mouseleave', () => dragging = false);
+
+  // zoom
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.91;
+    dfaZoom(factor);
+  }, { passive: false });
+}
+
+function resize() {
+  if (!canvas) return;
+  const r = wrapEl.getBoundingClientRect();
+  canvas.width  = r.width  * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+  canvas.style.width  = r.width  + 'px';
+  canvas.style.height = r.height + 'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  drawGraph();
+}
+
+function dfaZoom(factor) {
+  const r = wrapEl.getBoundingClientRect();
+  const cx = r.width / 2, cy = r.height / 2;
+  viewX = cx + (viewX - cx) * factor;
+  viewY = cy + (viewY - cy) * factor;
+  viewScale *= factor;
+  drawGraph();
+}
+
+function dfaReset() {
+  if (!currentGraph) return;
+  const r = wrapEl.getBoundingClientRect();
+  const xs = currentGraph.states.map(s=>s.x), ys = currentGraph.states.map(s=>s.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const gw = maxX - minX + 160, gh = maxY - minY + 100;
+  viewScale = Math.min(r.width / gw, r.height / gh, 1.2) * 0.85;
+  viewX = (r.width  - gw * viewScale) / 2 - minX * viewScale + 60 * viewScale;
+  viewY = (r.height - gh * viewScale) / 2 - minY * viewScale + 40 * viewScale;
+  drawGraph();
+}
+
+function renderDFA() {
+  const mode = document.getElementById('dfa-mode').value;
+  currentGraph = DFA_GRAPHS[mode];
+  activeStateId = null;
+  buildStateList(currentGraph);
+  viewX = viewY = 0; viewScale = 1;
+  setTimeout(dfaReset, 30);
+}
+
+/* ── Drawing ── */
+const R = 36; // state circle radius
+
+function drawGraph() {
+  if (!ctx || !currentGraph) return;
+  const r = wrapEl.getBoundingClientRect();
+  const W = r.width, H = r.height;
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(viewX, viewY);
+  ctx.scale(viewScale, viewScale);
+
+  // edges
+  currentGraph.edges.forEach(e => drawEdge(e));
+
+  // states
+  currentGraph.states.forEach(s => drawState(s));
+
+  ctx.restore();
+}
+
+function worldPt(s) { return { x: s.x, y: s.y }; }
+
+function drawState(s) {
+  const { x, y } = worldPt(s);
+  const isActive = s.id === activeStateId;
+
+  ctx.save();
+
+  // glow for active
+  if (isActive) {
+    ctx.shadowColor = C.active;
+    ctx.shadowBlur  = 22;
+  }
+
+  // outer ring for accept
+  if (s.accept) {
+    ctx.beginPath();
+    ctx.arc(x, y, R + 5, 0, Math.PI * 2);
+    ctx.strokeStyle = isActive ? C.active : s.trap ? C.trap : C.accept;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // circle fill
+  ctx.beginPath();
+  ctx.arc(x, y, R, 0, Math.PI * 2);
+  let fill;
+  if (isActive)    fill = C.active;
+  else if (s.start) fill = C.start;
+  else if (s.trap)  fill = '#2a1515';
+  else              fill = '#1e2133';
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  // border
+  ctx.strokeStyle = isActive ? C.active : s.start ? C.start : s.trap ? C.trap : s.accept ? C.accept : C.normal;
+  ctx.lineWidth = isActive ? 2.5 : 1.5;
+  ctx.stroke();
+
+  // start arrow
+  if (s.start) {
+    ctx.beginPath();
+    ctx.moveTo(x - R - 28, y);
+    ctx.lineTo(x - R - 2, y);
+    ctx.strokeStyle = C.start;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    arrowHead(x - R - 2, y, 0, C.start);
+  }
+
+  // label
+  ctx.fillStyle = isActive ? '#000' : C.text;
+  ctx.font = `bold ${Math.max(9, 12 - s.label.length)}px 'JetBrains Mono', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(s.label, x, y);
+
+  ctx.restore();
+}
+
+function drawEdge(e) {
+  const sg = currentGraph.states.find(s=>s.id===e.from);
+  const tg = currentGraph.states.find(s=>s.id===e.to);
+  if (!sg || !tg) return;
+
+  const isActiveEdge = (sg.id === activeStateId || tg.id === activeStateId);
+  const isSelf = e.from === e.to;
+
+  ctx.save();
+  ctx.strokeStyle = isActiveEdge ? C.edgeHL : C.edge;
+  ctx.lineWidth   = isActiveEdge ? 1.8 : 1;
+  ctx.fillStyle   = isActiveEdge ? C.edgeHL : C.edge;
+
+  if (isSelf) {
+    // self-loop above
+    const lx = sg.x, ly = sg.y - R;
+    ctx.beginPath();
+    ctx.arc(lx, ly - 22, 22, Math.PI * 0.2, Math.PI * 2.8);
+    ctx.stroke();
+    arrowHead(lx + 18, ly - 10, -0.5, ctx.strokeStyle);
+    edgeLabel(lx, ly - 52, e.label, isActiveEdge);
+    ctx.restore(); return;
+  }
+
+  const dx = tg.x - sg.x, dy = tg.y - sg.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const ux = dx/dist, uy = dy/dist;
+
+  // check if there's a reverse edge → curve
+  const hasReverse = currentGraph.edges.some(r => r.from === e.to && r.to === e.from);
+
+  if (hasReverse) {
+    // quadratic curve offset sideways
+    const perp = { x: -uy * 40, y: ux * 40 };
+    const sx = sg.x + ux * R, sy = sg.y + uy * R;
+    const ex = tg.x - ux * R, ey = tg.y - uy * R;
+    const cpx = (sx + ex) / 2 + perp.x;
+    const cpy = (sy + ey) / 2 + perp.y;
+
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+    ctx.stroke();
+
+    // arrow at target
+    const tx2 = ex - cpx, ty2 = ey - cpy;
+    const tlen = Math.sqrt(tx2*tx2+ty2*ty2);
+    arrowHead(ex, ey, Math.atan2(ty2, tx2), ctx.strokeStyle);
+
+    edgeLabel((sx+ex)/2 + perp.x * 0.7, (sy+ey)/2 + perp.y * 0.7, e.label, isActiveEdge);
+  } else {
+    const sx = sg.x + ux * R, sy = sg.y + uy * R;
+    const ex = tg.x - ux * R, ey = tg.y - uy * R;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    arrowHead(ex, ey, Math.atan2(dy, dx), ctx.strokeStyle);
+    edgeLabel((sx+ex)/2, (sy+ey)/2 - 10, e.label, isActiveEdge);
+  }
+
+  ctx.restore();
+}
+
+function arrowHead(x, y, angle, color) {
+  const len = 9, w = 5;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-len, -w);
+  ctx.lineTo(-len,  w);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function edgeLabel(x, y, text, active) {
+  ctx.save();
+  ctx.font = '9px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(text).width;
+  ctx.fillStyle = active ? 'rgba(30,30,50,0.85)' : 'rgba(14,15,20,0.8)';
+  ctx.fillRect(x - tw/2 - 3, y - 7, tw + 6, 14);
+  ctx.fillStyle = active ? C.active : C.muted;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+/* ════════════════════════════════════════════════════════
+   STATE LIST SIDEBAR
+════════════════════════════════════════════════════════ */
+function buildStateList(graph) {
+  const el = document.getElementById('state-list');
+  el.innerHTML = '';
+  graph.states.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'state-card' + (s.start ? ' start' : '') + (s.accept ? ' accept' : '') + (s.trap ? ' error-st' : '');
+    d.dataset.id = s.id;
+    d.onclick = () => highlightState(s.id);
+    let badges = '';
+    if (s.start)  badges += '<span class="sc-badge start">START</span>';
+    if (s.accept) badges += '<span class="sc-badge accept">ACCEPT</span>';
+    if (s.trap)   badges += '<span class="sc-badge trap">DEAD</span>';
+    d.innerHTML = `<div class="sc-name">${s.label}</div><div class="sc-desc">${s.desc}</div>${badges}`;
+    el.appendChild(d);
+  });
+}
+
+function highlightState(id) {
+  activeStateId = id;
+  document.querySelectorAll('.state-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.id === id);
+  });
+  drawGraph();
+}
+
+function highlightStateForToken(tok) {
+  if (!tok) return;
+  const mode = document.getElementById('dfa-mode').value;
+  const map  = TOKEN_TO_STATE[tok.type];
+  if (!map) { highlightState(null); return; }
+  const stateId = map[mode] || map['all'] || null;
+  if (stateId) highlightState(stateId);
+}
+
+/* ════════════════════════════════════════════════════════
+   BOOT
+════════════════════════════════════════════════════════ */
+loadEx('ifelse');
+</script>
+</body>
+</html>
