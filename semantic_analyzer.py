@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Set, Tuple
 import json
+import sys
 
 
 # ══════════════════════════════════════════
@@ -205,8 +206,10 @@ class SemanticAnalyzer:
                         is_initialized=True
                     )
                     self.current_scope.define(sym)
-                    with open('/dev/stderr', 'a') as f:
-                        f.write(f"Added symbol: {var_name}\n")
+                    try:
+                        sys.stderr.write(f"Added symbol: {var_name}\n")
+                    except Exception:
+                        pass
                 else:
                     # Variable already exists, mark as initialized
                     sym = self.current_scope.lookup_local(var_name)
