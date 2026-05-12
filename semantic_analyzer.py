@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Set, Tuple
 import json
+import sys
 
 
 # ══════════════════════════════════════════
@@ -124,6 +125,152 @@ class SemanticAnalyzer:
         ]
         for builtin in builtins:
             self.global_scope.define(builtin)
+
+    def _infer_type(self, node: Any) -> str:
+        """Infer the type of an AST node"""
+        if not node or not isinstance(node, dict):
+            return VarType.UNKNOWN
+
+        kind = node.get("kind", "")
+
+        # Literal types
+        if kind == "Int":
+            return VarType.INT
+        elif kind == "Float":
+            return VarType.FLOAT
+        elif kind == "Str":
+            return VarType.STRING
+        elif kind == "Bool":
+            return VarType.BOOL
+
+        # Variable: look up its type
+        elif kind == "Var":
+            var_name = node.get("value")
+            if var_name:
+                sym = self.current_scope.lookup(var_name)
+                if sym:
+                    return sym.type
+            return VarType.UNKNOWN
+
+        # Binary operations: type checking
+        elif kind == "BinOp":
+            op = node.get("value", "")
+            children = node.get("children", [])
+            if len(children) >= 2:
+                left_type = self._infer_type(children[0])
+                right_type = self._infer_type(children[1])
+
+                # Numeric ops (+, -, *, /) require numeric types
+                if op in ("+", "-", "*", "/"):
+                    if left_type in (VarType.INT, VarType.FLOAT) and right_type in (VarType.INT, VarType.FLOAT):
+                        # Mixed int/float → float; int+int → int
+                        return VarType.FLOAT if left_type == VarType.FLOAT or right_type == VarType.FLOAT else VarType.INT
+                    else:
+                        return VarType.UNKNOWN
+
+                # String + string = string
+                if op == "+" and left_type == VarType.STRING and right_type == VarType.STRING:
+                    return VarType.STRING
+
+            return VarType.UNKNOWN
+
+        # Unary operations
+        elif kind == "UnaryOp":
+            op = node.get("value", "")
+            children = node.get("children", [])
+            if op == "-" and children:
+                operand_type = self._infer_type(children[0])
+                if operand_type in (VarType.INT, VarType.FLOAT):
+                    return operand_type
+            return VarType.UNKNOWN
+
+        # Function calls
+        elif kind == "Call":
+            func_name = node.get("value")
+            if func_name == "len":
+                return VarType.INT
+            elif func_name == "int":
+                return VarType.INT
+            elif func_name == "float":
+                return VarType.FLOAT
+            elif func_name == "str":
+                return VarType.STRING
+            return VarType.UNKNOWN
+
+        return VarType.UNKNOWN
+    
+    def _infer_type(self, node: Any) -> str:
+        """Infer the type of an AST node"""
+        if not node or not isinstance(node, dict):
+            return VarType.UNKNOWN
+        
+        kind = node.get("kind", "")
+        
+        # Literal types
+        if kind == "Int":
+            return VarType.INT
+        elif kind == "Float":
+            return VarType.FLOAT
+        elif kind == "Str":
+            return VarType.STRING
+        elif kind == "Bool":
+            return VarType.BOOL
+        
+        # Variable: look up its type
+        elif kind == "Var":
+            var_name = node.get("value")
+            if var_name:
+                sym = self.current_scope.lookup(var_name)
+                if sym:
+                    return sym.type
+            return VarType.UNKNOWN
+        
+        # Binary operations: type checking
+        elif kind == "BinOp":
+            op = node.get("value", "")
+            children = node.get("children", [])
+            if len(children) >= 2:
+                left_type = self._infer_type(children[0])
+                right_type = self._infer_type(children[1])
+                
+                # Numeric ops (+, -, *, /) require numeric types
+                if op in ("+", "-", "*", "/"):
+                    if left_type in (VarType.INT, VarType.FLOAT) and right_type in (VarType.INT, VarType.FLOAT):
+                        # Mixed int/float → float; int+int → int
+                        return VarType.FLOAT if left_type == VarType.FLOAT or right_type == VarType.FLOAT else VarType.INT
+                    else:
+                        return VarType.UNKNOWN
+                
+                # String + string = string
+                if op == "+" and left_type == VarType.STRING and right_type == VarType.STRING:
+                    return VarType.STRING
+            
+            return VarType.UNKNOWN
+        
+        # Unary operations
+        elif kind == "UnaryOp":
+            op = node.get("value", "")
+            children = node.get("children", [])
+            if op == "-" and children:
+                operand_type = self._infer_type(children[0])
+                if operand_type in (VarType.INT, VarType.FLOAT):
+                    return operand_type
+            return VarType.UNKNOWN
+        
+        # Function calls
+        elif kind == "Call":
+            func_name = node.get("value")
+            if func_name == "len":
+                return VarType.INT
+            elif func_name == "int":
+                return VarType.INT
+            elif func_name == "float":
+                return VarType.FLOAT
+            elif func_name == "str":
+                return VarType.STRING
+            return VarType.UNKNOWN
+        
+        return VarType.UNKNOWN
     
     def analyze(self, ast: Any) -> Dict[str, Any]:
         """Run semantic analysis on AST"""
@@ -192,30 +339,59 @@ class SemanticAnalyzer:
             var_node = children[0]
             if var_node.get("kind") == "Var":
                 var_name = var_node.get("value")
-                
+                current_line = node.get("line", 0)
+
+                # Analyze RHS first to get its type
+                rhs_node = children[1] if len(children) > 1 else None
+                if rhs_node:
+                    self._analyze_node(rhs_node)
+                    rhs_type = self._infer_type(rhs_node)
+                else:
+                    rhs_type = VarType.UNKNOWN
+
                 # Check if variable already declared in current scope
-                if self.current_scope.lookup_local(var_name) is None:
-                    # First declaration
+                existing = self.current_scope.lookup_local(var_name)
+                if existing is None:
+                    # First declaration — infer type from RHS
                     sym = Symbol(
                         name=var_name,
-                        type=VarType.UNKNOWN,
+                        type=rhs_type,
                         kind="var",
-                        line=node.get("line", 0),
+                        line=current_line,
                         scope_level=self.current_scope.level,
                         is_initialized=True
                     )
                     self.current_scope.define(sym)
-                    with open('/dev/stderr', 'a') as f:
-                        f.write(f"Added symbol: {var_name}\n")
+                    try:
+                        sys.stderr.write(f"Added symbol: {var_name}\n")
+                    except Exception:
+                        pass
                 else:
-                    # Variable already exists, mark as initialized
-                    sym = self.current_scope.lookup_local(var_name)
-                    if sym:
-                        sym.is_initialized = True
-        
-        # Analyze right-hand side expression
-        if len(children) > 1:
-            children[1] = self._analyze_node(children[1])
+                    # Same-scope redeclaration is not allowed.
+                    self.errors.append(SemanticError(
+                        message=(
+                            f"Redeclaration of variable: '{var_name}' in the same scope"
+                            + (f" (previously declared on line {existing.line})" if existing.line else "")
+                        ),
+                        line=current_line,
+                        error_type="error"
+                    ))
+
+                    # Type mismatch on redeclaration
+                    if rhs_type != VarType.UNKNOWN and existing.type != VarType.UNKNOWN:
+                        if existing.type != rhs_type:
+                            self.errors.append(SemanticError(
+                                message=(
+                                    f"Type mismatch on redeclaration: '{var_name}' is {existing.type}, "
+                                    f"but RHS is {rhs_type}"
+                                ),
+                                line=current_line,
+                                error_type="error"
+                            ))
+
+                    # Keep the first declaration, but still walk the RHS.
+                    # If you want reassignment to be allowed later, this is the
+                    # single place to relax.
         
         node["children"] = children
         return node
@@ -276,6 +452,30 @@ class SemanticAnalyzer:
             # Analyze operands
             children[0] = self._analyze_node(children[0])
             children[1] = self._analyze_node(children[1])
+            op = node.get("value", "")
+            left_type = self._infer_type(children[0])
+            right_type = self._infer_type(children[1])
+
+            # Type checking for numeric operations
+            if op in ("+", "-", "*", "/"):
+                if left_type not in (VarType.INT, VarType.FLOAT, VarType.UNKNOWN):
+                    self.errors.append(SemanticError(
+                        message=f"Operator '{op}' requires numeric left operand, got {left_type}",
+                        line=node.get("line", 0),
+                        error_type="error"
+                    ))
+                if right_type not in (VarType.INT, VarType.FLOAT, VarType.UNKNOWN):
+                    self.errors.append(SemanticError(
+                        message=f"Operator '{op}' requires numeric right operand, got {right_type}",
+                        line=node.get("line", 0),
+                        error_type="error"
+                    ))
+
+            # Infer and attach result type if known
+            result_type = self._infer_type(node)
+            if result_type != VarType.UNKNOWN:
+                node["_type"] = result_type
+
             node["children"] = children
         return node
     

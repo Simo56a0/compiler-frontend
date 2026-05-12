@@ -57,7 +57,7 @@ class TT:
 
 
 KEYWORDS = {
-    "if", "else", "elif", "in", "not", "and", "or",
+    "else", "elif", "in", "not", "and", "or",
     "def", "return", "import", "from", "as", "pass",
     "break", "continue", "lambda", "yield", "with", "try", "except",
     "finally", "raise", "del", "global", "nonlocal", "assert",

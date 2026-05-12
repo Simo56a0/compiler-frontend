@@ -20,3 +20,43 @@ _analyze_node kind=Var
 _analyze_node kind=Int
 _analyze_node kind=Print
 _analyze_node kind=Var
+analyze() called with ast=True
+_analyze_node kind=Program
+_analyze_node kind=Assign
+_analyze_assign called
+analyze() called with ast=True
+_analyze_node kind=Program
+_analyze_node kind=Assign
+_analyze_assign called
+analyze() called with ast=True
+_analyze_node kind=Program
+_analyze_node kind=Assign
+_analyze_assign called
+analyze() called with ast=True
+_analyze_node kind=Program
+_analyze_node kind=Assign
+_analyze_assign called
+_analyze_node kind=Int
+_analyze_node kind=Print
+_analyze_node kind=Var
+analyze() called with ast=True
+_analyze_node kind=Program
+_analyze_node kind=Assign
+_analyze_assign called
+_analyze_node kind=Int
+_analyze_node kind=Print
+_analyze_node kind=Var
+analyze() called with ast=True
+_analyze_node kind=Program
+_analyze_node kind=Assign
+_analyze_assign called
+_analyze_node kind=Int
+_analyze_node kind=Print
+_analyze_node kind=Var
+analyze() called with ast=True
+_analyze_node kind=Program
+_analyze_node kind=Assign
+_analyze_assign called
+_analyze_node kind=Int
+_analyze_node kind=Print
+_analyze_node kind=Var
