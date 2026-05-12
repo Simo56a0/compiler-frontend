@@ -324,6 +324,82 @@ header {
 
 .symbol-table tr:hover { background:rgba(124,106,247,.05); }
 
+/* Semantic error emphasis */
+.semantic-alert {
+  margin-bottom:12px;
+  padding:10px 12px;
+  border-radius:6px;
+  border:1px solid rgba(248,113,113,.35);
+  background:rgba(248,113,113,.08);
+}
+.semantic-alert-title {
+  color:var(--err);
+  font-weight:800;
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+.semantic-alert-body {
+  color:#fecaca;
+  font-size:11px;
+  line-height:1.6;
+}
+.semantic-error-list {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:10px;
+}
+.semantic-error-card {
+  border:1px solid rgba(248,113,113,.28);
+  border-left:4px solid var(--err);
+  border-radius:6px;
+  background:rgba(248,113,113,.05);
+  padding:8px 10px;
+}
+.semantic-error-card.redeclaration {
+  border-color:rgba(251,191,36,.45);
+  border-left-color:#fbbf24;
+  background:rgba(251,191,36,.08);
+}
+.semantic-error-top {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  justify-content:space-between;
+  margin-bottom:4px;
+}
+.semantic-error-badge {
+  display:inline-flex;
+  align-items:center;
+  padding:2px 6px;
+  border-radius:999px;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  background:rgba(248,113,113,.16);
+  color:#fecaca;
+}
+.semantic-error-card.redeclaration .semantic-error-badge {
+  background:rgba(251,191,36,.16);
+  color:#fde68a;
+}
+.semantic-error-message {
+  color:#fecaca;
+  font-size:11px;
+  line-height:1.55;
+}
+.semantic-error-card.redeclaration .semantic-error-message {
+  color:#fef3c7;
+}
+.semantic-error-line {
+  color:var(--muted);
+  font-size:10px;
+  margin-top:3px;
+}
+
 /* ── PARSER TREE ── */
 .parser-tree {
   flex:1; padding:16px; overflow-y:auto; font-family:'JetBrains Mono',monospace; font-size:12px;
@@ -1320,6 +1396,19 @@ function buildStageHTML(stage, stageNum) {
     }
   } else if (stageNum === 3) {
     // Semantic Analysis - show symbol table and errors
+    const semanticErrors = stage.errors || [];
+    const redeclarationErrors = semanticErrors.filter(err => {
+      const msg = String(err.message || '').toLowerCase();
+      return msg.includes('redeclaration of variable');
+    });
+
+    if (semanticErrors.length > 0) {
+      html += '<div class="semantic-alert">';
+      html += '<div class="semantic-alert-title">Semantic issues found</div>';
+      html += `<div class="semantic-alert-body">${semanticErrors.length} issue${semanticErrors.length === 1 ? '' : 's'} detected. ${redeclarationErrors.length ? redeclarationErrors.length + ' redeclaration' + (redeclarationErrors.length === 1 ? '' : 's') + ' highlighted below.' : ''}</div>`;
+      html += '</div>';
+    }
+
     if (stage.symbol_table && Object.keys(stage.symbol_table).length > 0) {
       html += '<div style="margin-bottom:12px;">';
       html += '<div style="font-weight:bold; color:var(--accent2); margin-bottom:6px; font-size:11px; text-transform:uppercase;">Symbol Table:</div>';
@@ -1345,12 +1434,24 @@ function buildStageHTML(stage, stageNum) {
       html += '</div>';
     }
     
-    if (stage.errors && stage.errors.length > 0) {
+    if (semanticErrors.length > 0) {
       html += '<div style="border-top:1px solid var(--border); padding-top:10px;">';
-      html += `<div style="color:var(--err); font-weight:bold; margin-bottom:6px;">✕ Semantic Errors (${stage.errors.length}):</div>`;
-      stage.errors.forEach(err => {
-        html += `<div style="font-size:11px; color:var(--err); margin:4px 0;">${esc(err.message || JSON.stringify(err))}</div>`;
+      html += `<div style="color:var(--err); font-weight:800; margin-bottom:6px; font-size:11px; text-transform:uppercase; letter-spacing:.08em;">✕ Semantic Errors (${semanticErrors.length})</div>`;
+      html += '<div class="semantic-error-list">';
+      semanticErrors.forEach(err => {
+        const message = err.message || JSON.stringify(err);
+        const isRedeclaration = String(message).toLowerCase().includes('redeclaration of variable');
+        const lineInfo = [err.line ? `line ${err.line}` : null, err.col ? `col ${err.col}` : null].filter(Boolean).join(', ');
+        const badge = isRedeclaration ? 'Redeclaration' : (err.error_type ? String(err.error_type).toUpperCase() : 'ERROR');
+        html += `<div class="semantic-error-card ${isRedeclaration ? 'redeclaration' : ''}">`;
+        html += '<div class="semantic-error-top">';
+        html += `<span class="semantic-error-badge">${esc(badge)}</span>`;
+        html += `${lineInfo ? `<span class="semantic-error-line">${esc(lineInfo)}</span>` : '<span class="semantic-error-line">&nbsp;</span>'}`;
+        html += '</div>';
+        html += `<div class="semantic-error-message">${esc(message)}</div>`;
+        html += '</div>';
       });
+      html += '</div>';
       html += '</div>';
     } else if (stage.warnings && stage.warnings.length > 0) {
       html += '<div style="border-top:1px solid var(--border); padding-top:10px;">';
